@@ -196,86 +196,118 @@ class Factory {
    }
    ```
 
-   ## 4、按指定顺序执行线程
 
-   > 利用多个监视器Condition来具体await()和signal()
+### 4、同步队列（SynchronousQueue）版
 
-   1. 使用
+```java
+public class SynchronousQueueTest {
+    public static void main(String[] args) throws InterruptedException {
+        SynchronousQueue<Integer> queue = new SynchronousQueue<>();
+        new Thread(() -> {
+            for (int i = 0; i < 4; i++) {
+                System.out.println(Thread.currentThread().getName() + "需要一把牙刷");
+                try {
+                    System.out.println(Thread.currentThread().getName() + "买了一把id为" + queue.take() + "的牙刷");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, "消费者").start();
+        TimeUnit.SECONDS.sleep(2);
+        new Thread(() -> {
+            for (int i = 0; i < 4; i++) {
+                try {
+                    queue.put(i);
+                    System.out.println(Thread.currentThread().getName() + "生产了id为"+i+"把牙刷");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, "生产者").start();
+    }
+}
+```
 
-      ```java
-      public class Controller_Lock_Order {
-          public static void main(String[] args) {
-              Data data = new Data();
-              new Thread(() -> {
-                  for (int i = 0; i < 10; i++) {
-                      data.theadA();
-                  }
-              },"A").start();
-              new Thread(() -> {
-                  for (int i = 0; i < 20; i++) {
-                      data.theadB();
-                  }
-              },"B").start();
-              new Thread(() -> {
-                  for (int i = 0; i < 20; i++) {
-                      data.theadC();
-                  }
-              },"C").start();
-          }
-      }
-      class Data {
-          final Lock lock = new ReentrantLock();
-          Condition condition1 = lock.newCondition();
-          Condition condition2 = lock.newCondition();
-          Condition condition3 = lock.newCondition();
-          private String id = "A";
-          public void theadA() {
-              lock.lock();
-              try {
-                  while (!id.equals("A")) {
-                      condition1.await();
-                  }
-                  System.out.println(Thread.currentThread().getName()+"调用了AAAA");
-                  id = "B";
-                  condition2.signal();
-              } catch (Exception e) {
-                  e.printStackTrace();
-              } finally {
-                  lock.unlock();
-              }
-          }
-          public void theadB() {
-              lock.lock();
-              try {
-                  while (!id.equals("B")) {
-                      condition2.await();
-                  }
-                  System.out.println(Thread.currentThread().getName()+"调用了BBBB");
-                  id = "C";
-                  condition3.signal();
-              } catch (Exception e) {
-                  e.printStackTrace();
-              } finally {
-                  lock.unlock();
-              }
-          }
-          public void theadC() {
-              lock.lock();
-              try {
-                  while (!id.equals("C")) {
-                      condition3.await();
-                  }
-                  System.out.println(Thread.currentThread().getName()+"调用了CCCC");
-                  id = "A";
-                  condition1.signal();
-              } catch (Exception e) {
-                  e.printStackTrace();
-              } finally {
-                  lock.unlock();
-              }
-          }
-      }
-      ```
+## 5、按指定顺序执行线程
+
+> 利用多个监视器Condition来具体await()和signal()
+
+1. 使用
+
+   ```java
+   public class Controller_Lock_Order {
+       public static void main(String[] args) {
+           Data data = new Data();
+           new Thread(() -> {
+               for (int i = 0; i < 10; i++) {
+                   data.theadA();
+               }
+           },"A").start();
+           new Thread(() -> {
+               for (int i = 0; i < 20; i++) {
+                   data.theadB();
+               }
+           },"B").start();
+           new Thread(() -> {
+               for (int i = 0; i < 20; i++) {
+                   data.theadC();
+               }
+           },"C").start();
+       }
+   }
+   class Data {
+       final Lock lock = new ReentrantLock();
+       Condition condition1 = lock.newCondition();
+       Condition condition2 = lock.newCondition();
+       Condition condition3 = lock.newCondition();
+       private String id = "A";
+       public void theadA() {
+           lock.lock();
+           try {
+               while (!id.equals("A")) {
+                   condition1.await();
+               }
+               System.out.println(Thread.currentThread().getName()+"调用了AAAA");
+               id = "B";
+               condition2.signal();
+           } catch (Exception e) {
+               e.printStackTrace();
+           } finally {
+               lock.unlock();
+           }
+       }
+       public void theadB() {
+           lock.lock();
+           try {
+               while (!id.equals("B")) {
+                   condition2.await();
+               }
+               System.out.println(Thread.currentThread().getName()+"调用了BBBB");
+               id = "C";
+               condition3.signal();
+           } catch (Exception e) {
+               e.printStackTrace();
+           } finally {
+               lock.unlock();
+           }
+       }
+       public void theadC() {
+           lock.lock();
+           try {
+               while (!id.equals("C")) {
+                   condition3.await();
+               }
+               System.out.println(Thread.currentThread().getName()+"调用了CCCC");
+               id = "A";
+               condition1.signal();
+           } catch (Exception e) {
+               e.printStackTrace();
+           } finally {
+               lock.unlock();
+           }
+       }
+   }
+   ```
 
 # 7、八锁
 
@@ -360,7 +392,7 @@ class MyThread implements Callable<String> {
 }
 ```
 
-# 10、常用的辅助类
+# 10、常用的辅助类（重要）
 
 ## 1、CountDownLatch
 
@@ -525,6 +557,169 @@ class Data {
     }
 }
 ```
+
+# 12、阻塞队列
+
+> 1. new对象的时候可以传入一个参数来初始化阻塞队列大小。
+> 2. 写入：如果队列满了，就必须阻塞等待。
+> 3. 取：如果是队列是空的，必须阻塞等待生产。
+
+## 1、什么是阻塞队列
+
+1. ![BlackingQueue](JUC入门.assets/BlackingQueue-16445669279573.png)
+
+2. BlockingQueue实现被设计为主要用于生产者-消费者队列，多线程并发处理，线程池，但另外支持Collection接口。
+3. BlockingQueue实现是线程安全的，所有排队方法使用内部锁或其他形式的并发控制在原子上实现其效果，然而，大量的Collection操作addAll，containAll,retainAll和removeAll不一定原子除非排除在实现中另有规定执行。因此有可能，例如，为addAll(c)到只增加一些元件在后失败抛出异常。
+
+## 2、四组API（重要)
+
+> 实现 BlockingQueue的类都拥有这四阻Api
+
+| 方式         | 抛出异常  | 有返回值，不抛出异常 | 阻塞   | 超时结束                                |
+| ------------ | --------- | -------------------- | ------ | --------------------------------------- |
+| 添加         | add()     | offer()              | put()  | offer(E e, long timeout, TimeUnit unit) |
+| 移除         | remove()  | poll()               | take() | poll(long timeout, TimeUnit unit)       |
+| 检测队首元素 | element() | peek()               |        |                                         |
+
+## 3、同步队列
+
+### 1、什么是同步队列
+
+1. 类SynchronousQueue。
+2. 属于BlockingQueue接口。
+3. SynchronousQueue没有容量大小，甚至没有一个容量。其中每个插入操作必须等待另一个线程相应的删除操作，反之亦然。你不能`peek`在同步队列，因为一个元素，当您尝试删除它才存在;  您无法插入元素（使用任何方法），除非另有线程正在尝试删除它; 你不能迭代，因为没有什么可以迭代。  队列的*头部*是第一个排队的插入线程尝试添加到队列中的元素;  如果没有这样排队的线程，那么没有元素可用于删除，并且`poll()`将返回`null` 。 
+4. 此类支持可选的公平策略，用于订购等待的生产者和消费者线程。默认情况下，此订单不能保证。然而，以公平设置为`true`的队列以FIFO顺序授予线程访问权限。
+
+### 2、使用
+
+```java
+public class SynchronousQueueTest {
+    public static void main(String[] args) throws InterruptedException {
+        SynchronousQueue<Integer> queue = new SynchronousQueue<>();
+        new Thread(() -> {
+            for (int i = 0; i < 4; i++) {
+                System.out.println(Thread.currentThread().getName() + "需要一把牙刷");
+                try {
+                    System.out.println(Thread.currentThread().getName() + "买了一把id为" + queue.take() + "的牙刷");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, "消费者").start();
+        TimeUnit.SECONDS.sleep(2);
+        new Thread(() -> {
+            for (int i = 0; i < 4; i++) {
+                try {
+                    queue.put(i);
+                    System.out.println(Thread.currentThread().getName() + "生产了id为"+i+"把牙刷");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, "生产者").start();
+    }
+}
+```
+
+# 13、线程池（重点）
+
+## 1、什么是线程池
+
+1. 有线程池、连接池、内存池、对象池等。
+2. 线程池是一种多线程处理形式，处理过程中将任务添加到队列，然后再创建线程后自动启动这些任务。
+3. 线程池一种线程使用模式。线程过多会带来调度开销，进而影响缓存局部性和整体性。而线程池维护着多个线程，等待着监督管理者分配可并发执行的认为。这避免了在处理短时间任务时创建与销毁线程的代价。
+4. 线程池不仅能够保证内核的充分利用，还能防止过分调度。可用线程数量应该取决于可用的并发处理器、处理器内核、内存、网络sockets等的数量。
+
+## 2、池化技术
+
+1. 池化技术能够减少资源对象的创建次数，提高程序的性能，特别是在高并发下这种提高更加明显。
+2. 使用池化技术缓存的资源对象有如下共同特点：对象创建时间过长；对象创建需要大量资源；对象创建后可被重复使用。
+
+## 3、阿里巴巴开发文档建议
+
+1. 线程池不允许使用Executors取创建，而是通过ThreadPoolExecutor的方式，这样的处理方式让写的同学更加明确线程池的运行规则，规避资源耗尽的风险。
+
+2. 说明：Executors返回的线程池对象的弊端如下：
+
+   * FixedThreadPool和SingleThreadPool:
+
+     允许的请求队列长度为Integer.MAX_VALUE，可能会堆积大量的请求，从而导致OOM。
+
+   * CachedThreadPool和ScheduledThreadPool:
+
+     允许的创建线程数量为Integer.MAX_VALUE，可能会创建大量的线程，从而导致OOM。
+
+## 4、三大方法
+
+1. Executors.newSingleThreadExecutor()：单个线程的线程池。
+
+2. Executors.newFixedThreadPool(int nThreads)：创建一个自定义个数线程的线程池。
+
+3. Executors.newCachedThreadPool()：按内存大小弹性的分配线程数量。
+
+4. ```java
+   public class ThreeMethod {
+       public static void main(String[] args) {
+   //        单个线程的线程池
+   //        ExecutorService executorService = Executors.newSingleThreadExecutor();
+   //        创建一个自定义个数线程的线程池
+   //        ExecutorService executorService = Executors.newFixedThreadPool(5);
+   //        按内存大小弹性的分配线程数量
+           ExecutorService executorService = Executors.newCachedThreadPool();
+           try {
+               for (int i = 0; i < 999999999; i++) {
+                   executorService.execute(() -> {
+                       System.out.println(Thread.currentThread().getName() + "执行了");
+                   });
+               }
+           } catch (Exception e) {
+               e.printStackTrace();
+           } finally {
+               executorService.shutdown();
+           }
+       }
+   }
+   ```
+
+# 5、ThreadPoolExecutor七大参数（建议使用这个去创建线程池）
+
+> ThreadPoolExecutor(int corePoolSize, int maxinumPoolSize, long keepAliveTime, BlockingQueue<Runable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler)
+
+1. int corePoolSize：核心线程池大小
+
+2. int maxinumPoolSize：最大核心线程池大小
+
+3. long keepAliveTime：超时了没有人调用就会释放
+
+4. TimeUnit：超时单位
+
+5. BlockingQueue<Runnable> workQueue：
+
+   * 阻塞队列，类似银行等候区，一个线程池最大运行线程数=阻塞队列容量+最大核心线程池大小。
+
+   * 当线程数>corePoolSize+阻塞队列容量，线程池则会创建新线程。
+   * 当线程数>maximumPoolSize+阻塞队列容量，就会执行RejectedExecutionHandler
+
+6. ThreadFactory threadFactory：线程工厂，创建线程，一般不用动，默认
+
+7. RejectedExecutionHandler handle：拒绝策略，有四种：
+
+   * AbortPolicy(默认策略)：直接丢弃任务并且会抛出一个RejectedExecutionExceptio异常
+   * CallerRunsPolicy：剩下的交给任务提交者去执行。
+   * DiscardPolicy：直接丢弃任务，不抛出异常。
+   * DiscardOldestPolicy：抛弃最旧的，然后尝试把这次拒绝的放入队列中。
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
