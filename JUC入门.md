@@ -196,8 +196,7 @@ class Factory {
    }
    ```
 
-
-### 4、同步队列（SynchronousQueue）版
+## 4、同步队列（SynchronousQueue）版
 
 ```java
 public class SynchronousQueueTest {
@@ -681,7 +680,7 @@ public class SynchronousQueueTest {
    }
    ```
 
-# 5、ThreadPoolExecutor七大参数（建议使用这个去创建线程池）
+## 5、ThreadPoolExecutor七大参数（建议使用这个去创建线程池）
 
 > ThreadPoolExecutor(int corePoolSize, int maxinumPoolSize, long keepAliveTime, BlockingQueue<Runable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler)
 
@@ -709,21 +708,259 @@ public class SynchronousQueueTest {
    * DiscardPolicy：直接丢弃任务，不抛出异常。
    * DiscardOldestPolicy：抛弃最旧的，然后尝试把这次拒绝的放入队列中。
 
+## 6、CPU密集型和IO密集型（调优）
+
+> maxinumPoolSize(最大线程数)要怎么定义：分为CPU密集型和IO密集型
+
+1. CPU密集型，看当前电脑CPU核数，是几核最大线程数就定义几，java中获取当前电脑核数代码：Runtime.getRuntime().availableProcessors()。
+   1. IO密集性：判断程序中十分耗IO的线程有多少个，然后最大线程数设置为大于等于耗IO线程数或者*2。
+
+# 14、四大函数式接口（重点）
+
+> 有@FunctionalInterface注解的接口,JDK1.8才有的
+
+## 1、函数型接口
+
+1. Function<T,R>泛型传入两个参数,T是传入的参数，R是要返回的类型
+
+2. ```java
+   public class Demo01 {
+       public static void main(String[] args) {
+   //        第一种使用方法
+           Function<String, String> function = new Function<String,String>() {
+               @Override
+               public String apply(String o) {
+                   return "测试" + o;
+               }
+           };
+           
+   //        第二种使用
+           Function<String,String> function1 = (o) -> {return "测试" + o;};
+           System.out.println(function.apply("hello world"));
+       }
+   }
+   ```
+
+## 2、断定型接口
+
+1. Predicate<T> 泛型，放回boolean类型。
+
+2. ```java
+   public class Demo02 {
+       public static void main(String[] args) {
+           Predicate<String> predicate = new Predicate<String>() {
+               @Override
+               public boolean test(String s) {
+                   return s.equals("A");
+               }
+           };
+           Predicate<String> predicate1 = s -> {return s.equals("A");};
+       }
+   }
+   ```
+
+## 3、消费型接口
+
+1. Consume<T>：消费型接口只有入参没有放回值。
+
+2. ```java
+   public class ConsumerTest {
+       public static void main(String[] args) {
+           Consumer<Integer> consumer = new Consumer<Integer>() {
+               @Override
+               public void accept(Integer o) {
+                   System.out.println(o);
+               }
+           };
+           Consumer<Integer> consumer1 = o -> {
+               System.out.println(o);
+           };
+       }
+   }
+   ```
+
+## 4、供给型接口
+
+1. Supplier<T>：供给型接口没有入参只有返回值
+
+2. ```java
+   public class SupplierTest {
+       public static void main(String[] args) {
+           Supplier<Integer> supplier = new Supplier<Integer>() {
+               @Override
+               public Integer get() {
+                   return 1;
+               }
+           };
+           Supplier<Integer> supplier1 = () -> {return 1;};
+       }
+   }
+   ```
+
+# 15、Stream流式计算
+
+1. 用来快速计算的，采用了链式加函数式接口，类似js的高级函数。
+
+2. ```java
+   /**
+    * 题目要求，一分钟，一行代码解决问题
+    * 现在有五个用户，按要求进行筛选
+    * 1、ID必须是偶数。
+    * 2、年龄必须是大于23岁
+    * 3、用户名转为大写字母
+    * 4、用户名字母倒着排序
+    * 只输出一个用户
+    */
+   public class StreamTest0 {
+       public static void main(String[] args) {
+           User user = new User(1, "a", 21);
+           User user1 = new User(2, "b", 22);
+           User user2 = new User(3, "c", 23);
+           User user3 = new User(4, "d", 24);
+           User user4 = new User(6, "e", 25);
+           List<User> users = Arrays.asList(user, user1, user2, user3, user4);
+   //        转为Stream流
+           users.stream()
+                   .filter(o -> {return o.getId() % 2 == 0;})
+                   .filter(o -> {return o.getAge() > 23;})
+                   .peek(o -> {o.setName(o.getName().toUpperCase());})
+                   .sorted((o1, o2) -> {return o2.getName().compareTo(o1.getName());})
+                   .limit(1)
+                   .forEach(System.out::println);
+       }
+   }
+   ```
+
+# 16、ForkJoin
+
+## 1、什么是ForkJoin
+
+1. 分叉连接，JDk1.7开始有，并行的执行任务，提高效率还速度，用于大数据计算。
+2. 有点像并行处理的分治法。
+3. 把大的任务分成两个小的任务，然后在小的当中在分两个小的，然后采用并行执行这些任务。
+4. ![并行任务](JUC入门.assets/并行任务-16447510003901.png)
+
+## 2、ForkJoin的工作窃取
+
+1. 采用的是两个双端队列。
+2. 当其中一个执行完任务的时候，会去抢另外一个的任务。
+3. ![ForkJoin工作窃取](JUC入门.assets/ForkJoin工作窃取.png)
+
+## 3、使用
+
+```java
+public class ForkJoinTest {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+//        test1();
+//        结果是： 161596所花的时间是：3
+        test2();
+//        test3();
+    }
+//    第一种普通的方法
+    public static void test1() {
+        System.out.println("开始执行");
+        long sum = 0;
+        Long l = System.currentTimeMillis();
+        for (Long i = 0L; i <= 1_0000_0000_0000L; i++) {
+            sum += i;
+        }
+        Long l1 = System.currentTimeMillis();
+        System.out.println("结果是： " + sum + "所花的时间是：" + (l1 - l));
+        System.out.println("执行结束");
+    }
+//    第二种ForkJoin的方式
+    public static void test2() throws ExecutionException, InterruptedException {
+        Long l = System.currentTimeMillis();
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        ForkJoinUse forkJoinUse = new ForkJoinUse(0L, 1_0000_0000_0000_0000L);
+        ForkJoinTask<Long> submit = forkJoinPool.submit(forkJoinUse);
+        Long l1 = System.currentTimeMillis();
+        System.out.println("结果是： " + submit.get() + "所花的时间是：" + (l1 - l));
+    }
+//    第三种并行流
+    public static void test3() {
+        long l = System.currentTimeMillis();
+        long reduce = LongStream.rangeClosed(0, 1_0000_0000_0000L).parallel().reduce(0, Long::sum);
+        long l1 = System.currentTimeMillis();
+        System.out.println("结果是： " + reduce + "所花的时间是：" + (l1 - l));
+
+    }
+}
+class ForkJoinUse extends RecursiveTask<Long> {
+    private long start;
+    private long end;
+
+    //临界值，也就是二分的界线，这个数值调整可以影响执行效率
+    private long temp = 1000;
+    public ForkJoinUse(Long start, Long end) {
+        this.start = start;
+        this.end = end;
+    }
+    @Override
+    protected Long compute() {
+        if ((end - start) < temp) {
+            long sum = 0;
+            for (long i = start; i <= end; i++) {
+                sum += i;
+            }
+            return sum;
+        }else {
+//            求中间值，这样每次可以二分递归
+            long mid = (start + end) / 2;
+//            左边
+            ForkJoinUse forkJoinUseLeft = new ForkJoinUse(start, mid);
+//            加入ForkJoin进行拆分，压入线程队列中开始并行处理
+            forkJoinUseLeft.fork();
+//            右边
+            ForkJoinUse forkJoinUseRight = new ForkJoinUse(mid + 1, start);
+//            加入ForkJoin进行拆分，压入线程队列中开始并行处理
+            forkJoinUseRight.fork();
+//            算出当前拆分的结果，最后把所有结果汇总相加，就是真正的结果
+            return forkJoinUseLeft.join() + forkJoinUseRight.join();
+        }
+    }
+}
+```
+
+# 17、异步回调
+
+> Future类似js的回调函数，ajax，有成功和失败
+
+```java
+public class Demo01 {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+//        CompletableFuture<Void> completableFuture = CompletableFuture.runAsync(() -> {
+//            try {
+//                TimeUnit.SECONDS.sleep(2);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//            System.out.println(Thread.currentThread().getName() + "我被执行了");
+//        });
+//        System.out.println("aaa");
+//        completableFuture.get();
+//        System.out.println("bbb");
 
 
+        CompletableFuture<String> completableFuture = CompletableFuture.supplyAsync(() -> {
+            System.out.println(Thread.currentThread().getName() + "我被执行了");
+            int i = 1/0;
+            return "执行到了";
+        });
 
-
-
-
-
-
-
-
-
-
-
-
-
+//        异步调用
+        System.out.println(completableFuture.whenComplete((t, u) -> {
+            //            调用成功执行这个方法
+            System.out.println("t: " + t);
+            System.out.println("u" + u);
+        }).exceptionally(e -> {
+            //            调用失败执行这个方法
+            System.out.println("e: " + e.getMessage());
+            return "exceptionally";
+        }).get());
+    }
+}
+```
 
 
 
