@@ -962,9 +962,97 @@ public class Demo01 {
 }
 ```
 
+# 18、JMM
 
+## 1、什么是JMM
 
+1. 是java内存模型，是一种概念，约束。
 
+1. ![JMM](JUC入门.assets/JMM.png)
+
+## 2、JMM的八种操作
+
+1. lock（锁定）
+2. unlock（解锁
+3. load（载入）
+4. read（读取）
+5. use（使用）
+6. assign（赋值）
+7. write（写入）
+8. store（存储）
+
+## 3、JMM八种指令的使用规则
+
+1. 指令要配套使用，不允许read和load，write和store操作之一单独使用，即用来read必须用load，用来write必须用store。
+2. 不允许线程丢弃它最近的assign操作，即工作内存的变量的数据发生了变化必须告知主存。
+3. 不允许一个线程将没有assign的的数据从工作内存同步回主存。
+4. 一个新的变量必须在主内存中诞生，不允许工作内存直接使用未被初始化的变量，就是变量在进行use、store操作之前，必须经过assign和load操作。
+5. 一个变量同一时间只能有有一个线程对其进行lock。多次lock后，必须执行相同次数的unlock才能解锁。
+6. 如果对一个变量进行lock时，会清空所有工作内存中此变量的值，在执行引擎使用这个变量之前，必须重新load或assign操作初始化变量的值。
+7. 如果变量没有被lock，就不能对其进行unlock操作。也不能unlock一个被其他线程锁住的变量。
+8. 对一个变量进行unlock操作之前，必须把此变量同步回主内存。
+
+# 19、Volatile
+
+## 1、什么是Volatile
+
+1. Volatile是Java虚拟机提供的轻量级的同步机制。
+
+2. 保证了可见性（由JMM）。
+
+3. 不保证原子性：多线程下会导致数据不一致，使用原子类解决，java.util.concurrent.atomic，这些类的底层都是和操作挂钩，在内存中修改值，底层使用的是unsafe。
+
+   ```java
+   public class Demo01 {
+   //    volatile不能保证原子性，要用原子类
+   //    private volatile static int num = 0;
+       private volatile static AtomicInteger num = new AtomicInteger();
+       public static void add() {num.getAndIncrement();}
+   
+       public static void main(String[] args) {
+           for (int i = 1; i <= 20; i++) {
+               new Thread(() -> {
+                   for (int i1 = 1; i1 <= 1000; i1++) {
+                       add();
+                   }
+               }).start();
+           }
+           while (Thread.activeCount() > 2) {
+               Thread.yield();
+           }
+           System.out.println(Thread.currentThread().getName() + num);
+       }
+   }
+   ```
+
+4. 防止指令重排。
+
+# 20、指令重排
+
+## 1、什么是指令重排
+
+1. 写的程序，计算机不一定按照从上到下的顺序依次执行，因为CPU是轮询方式执行，则会进行指令重排，把执行慢的放到下面执行。
+
+2. 源代码->编译器重排->指令并行也有可能会重排->内存系统重排->执行。
+
+3. 但是在指令重排的时候会考虑数据的依赖性，以便保证最后结果的一致。
+
+4. 在多线程会发生指令重排。
+
+5. ~~~java
+   byte[] a = new byte[1024*1024]; //1
+   int b = 1; //2
+   a[0] = b; //3
+   //顺序1和顺序2因为效率问题可能会进行指令重排，
+   ~~~
+
+##  2、怎么解决指令重排
+
+1. 使用volatile可以避免指令重排，volatile带有内存屏障，可以保证特定的操作的执行顺序。
+
+2. 内存屏障：禁止上面指令和下面指令交换顺序。
+
+   ![内存屏障](C:/Users/Lenovo/Desktop/内存屏障.png)
 
 
 
