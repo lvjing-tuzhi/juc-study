@@ -1054,17 +1054,223 @@ public class Demo01 {
 
    ![内存屏障](C:/Users/Lenovo/Desktop/内存屏障.png)
 
+# 21、单例模式
 
+## 1、饿汉式
 
+```java
+/**
+ * @program: JUC-study
+ * @description: 饿汉式：每次都会创建新对象，会浪费资源
+ * @author: 兔子
+ * @create: 2022-02-15 19:50
+ **/
 
+public class HungryMan {
+    private HungryMan() {
+        System.out.println("ok");
+    }
+    private volatile static HungryMan instance = new HungryMan();
 
+//    向外提供一个公开获取实例的方法，由于静态的instance在类加载的时候就存在了，所以不存在线程不安全的问题，但是耗资源，对象加载时间过长。
+//    如果在该类里面存在大量开辟空间的语句，如很多数组或集合，但又不马上使用他们，这时这样的单例模式会消耗大量的内存，影响性能
+    public static HungryMan getInstance() {
+        return instance;
+    }
+}
+class HungryManTest {
+    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        HungryMan instance = HungryMan.getInstance();
+        HungryMan instance1 = HungryMan.getInstance();
+        System.out.println(instance);
+        System.out.println(instance1);
+//        多线程下也是安全的
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                HungryMan instance2 = HungryMan.getInstance();
+                System.out.println(instance2);
+            }).start();
+        }
+        //        使用反射进行破坏,可以进行破坏，所以饿汉式还是不安全的
+        Constructor<HungryMan> declaredConstructor = HungryMan.class.getDeclaredConstructor();
+        declaredConstructor.setAccessible(true);
+        HungryMan hungryMan = declaredConstructor.newInstance();
+        System.out.println(hungryMan);
+    }
+}
+```
 
+## 2、懒汉式
 
+```java
+/**
+ * @program: JUC-study
+ * @description: 懒汉式
+ * @author: 兔子
+ * @create: 2022-02-15 20:14
+ **/
 
+public class LazyMan {
+    private LazyMan() {}
+//    在类加载的时候不会马上创建对象，而是只生成一个引用，即延时加载，等要用的时候在加载
+    private static LazyMan instance;
 
+//    提供一个公开的获取方法，因为不是在类加载的时候创建对象，而是在使用的时候创建对象所以有可能存在安全问题，所以要加synchronized,但是加了synchronized效率就
+//    变低了，可能会有阻塞，并且在多线程下会有指令重排，导致数据不一致，而且会有被反射破坏的危险
+    public synchronized static LazyMan getInstance() {
+        if (instance == null) {
+            instance = new LazyMan();
+        }
+        return instance;
+    }
+}
+class LazyManTest {
+    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        for (int i = 0; i < 2; i++) {
+            LazyMan instance = LazyMan.getInstance();
+            System.out.println(instance);
+        }
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                LazyMan instance = LazyMan.getInstance();
+                System.out.println(instance);
+            }).start();
+        }
+//        反射可以破坏不安全
+        Constructor<LazyMan> declaredConstructor = LazyMan.class.getDeclaredConstructor();
+        declaredConstructor.setAccessible(true);
+        LazyMan lazyMan = declaredConstructor.newInstance();
+        System.out.println(lazyMan);
+    }
+}
+```
 
+## 3、DLC懒汉式
 
+```java
+/**
+ * @program: JUC-study
+ * @description: DLC懒汉式双重检测锁模式
+ * @author: 兔子
+ * @create: 2022-02-15 22:00
+ **/
 
+public class DLCLazyMan {
+    private DLCLazyMan() {
+    }
+
+//    只提供一个实例的引用，不创建对象
+//    使用volatile可以避免指令重排：
+//        创建对象的步骤：1.分配空间 2.执行构造方法，3.初始对象 4.把这个对象指向这个空间
+//            而没有volatile的话则可能会指令重排，导致变成132
+//    volatie对于一个线程的工作内存发生变化，主存会同步，其他线程的工作内存会同步主存
+//    也会被反射破坏
+    private volatile static DLCLazyMan instance;
+
+    //提供公共的获取方法,因为不是在类加载时就创建对象，因此存在线程安全问题，使用同步代码块提高效率
+    //现在不需要对整个方法进行同步，缩小了锁的范围，只有第一次会进入创建对象的方法，提高了效率
+    //当第一个线程执行到创建对象的方法时，但还未出方法返回，此时第二个线程进入，发现instance不为空，但第一个线程此时还未出去，
+    public static DLCLazyMan getInstance() {
+        if (instance == null) {
+            synchronized (DLCLazyMan.class) {}
+            if (instance == null) {
+                instance = new DLCLazyMan();
+            }
+        }
+        return instance;
+    }
+}
+class DLCLazyManTest {
+    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        for (int i = 0; i < 2; i++) {
+            DLCLazyMan instance = DLCLazyMan.getInstance();
+            System.out.println(instance);
+        }
+//        不安全也会被反射破坏
+        Constructor<DLCLazyMan> declaredConstructor = DLCLazyMan.class.getDeclaredConstructor();
+        declaredConstructor.setAccessible(true);
+        DLCLazyMan dlcLazyMan = declaredConstructor.newInstance();
+        System.out.println(dlcLazyMan);
+    }
+}
+```
+
+## 4、内部类式
+
+```java
+/**
+ * @program: JUC-study
+ * @description: 内部类方式
+ * @author: 兔子
+ * @create: 2022-02-15 22:15
+ **/
+
+public class InnerClass {
+    private InnerClass() {};
+
+//    静态内部类不会在外部类初始化的时候直接加载，只有当调用的时候才会，保证了线程安全，并且final保证了线程只有一份
+    private static class Inner {
+        private static final InnerClass instance = new InnerClass();
+    }
+    public static InnerClass getInstance() {
+        return Inner.instance;
+    }
+}
+class InnerClassTest {
+    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        for (int i = 0; i < 2; i++) {
+            InnerClass instance = InnerClass.getInstance();
+            System.out.println(instance);
+        }
+//        也会被反射破坏
+        Constructor<InnerClass> declaredConstructor = InnerClass.class.getDeclaredConstructor();
+        declaredConstructor.setAccessible(true);
+        InnerClass innerClass = declaredConstructor.newInstance();
+        System.out.println(innerClass);
+    }
+}
+```
+
+## 5、枚举类式
+
+```java
+/**
+ * @program: JUC-study
+ * @description: 枚举单例模式安全，不会被反射破坏
+ * @author: 兔子
+ * @create: 2022-02-15 22:22
+ **/
+
+public enum EnumSingle {
+    INSTANCE;
+    public static EnumSingle getInstance() {
+        return INSTANCE;
+    }
+}
+class EnumSingleTest {
+    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        for (int i = 0; i < 2; i++) {
+            EnumSingle instance = EnumSingle.getInstance();
+            System.out.println(instance);
+        }
+//        不能进行反射破坏，会报Cannot reflectively create enum objects
+        Constructor<EnumSingle> declaredConstructor = EnumSingle.class.getDeclaredConstructor(String.class,int.class);
+        declaredConstructor.setAccessible(true);
+        EnumSingle enumSingle = declaredConstructor.newInstance();
+        System.out.println(enumSingle);
+    }
+}
+```
+
+## 6、总结
+
+1. 饿汉式因为再类加载的时候就创建好对象了所以比懒汉式更安全，但是懒汉式是在调用的时候才创建对象，所以使用内存量小于饿汉式，但是懒汉式在多线程下不安全且getInstance使用了synchronize会造成阻塞，并且不能保证数据一致，可能会出现指令重排，所以出现了DLC懒汉式加上了voliate含内存屏障防止指令重排，并且加上了双重检索机制，但是在极端下还是会线程不安全，静态内部类不会在外部类初始化的时候直接加载，只有当调用的时候才会，保证了线程安全，并且final保证了线程只有一份，所以静态内部类式又会更安全。
+2. 但是上面四种的四种在反射下还是不安全，可以使用枚举类，枚举类不让反射进行破坏，当使用反射的时候会抛出异常Cannot reflectively create enum objects。
+3. 单例模式常见场景
+   - Windows的任务管理器、回收站等
+   - servlet中每个servlet都是单例
+   - 数据库连接池一般都是单例的
+   - Spring中每个Bean都是单例的
 
 
 
