@@ -1272,15 +1272,147 @@ class EnumSingleTest {
    - 数据库连接池一般都是单例的
    - Spring中每个Bean都是单例的
 
+# 22、CAS
 
+## 1、什么是CAS
 
+1. 是原子性类里面的方法。
+2. compareAndSet(int expect, int update)比较当前工作内存和主内存中的值，如果值符合预期expect，则进行更新操作把值更新为update，如果不符合则会进行循序阻塞。
+3. 底层是Unsafe的方法
+4. 缺点：
+   * 循环会耗时。
+   * 一次性只能保证一个共享变量的原子性。
+   * ABA问题(使用原子引用解决)：在主内存中一个数据为a=2，而这个时候一个线程进行操作a=1,a=2，而这个时候还有一个线程也在读取主内存数据，虽然最后结果一样，但是对于第二个线程来说，它并不知道数据已经发生修改了。
 
+## 2、使用
 
+```java
+public class CASDemo {
+    public static void main(String[] args) {
+        AtomicInteger atomicInteger = new AtomicInteger(2022);
+        atomicInteger.compareAndSet(2022,2023);
+        System.out.println(atomicInteger.get());
+        atomicInteger.compareAndSet(2022,2024);
+        System.out.println(atomicInteger.get());
 
+    }
+}
+```
 
+# 23、原子引用，引入一个标记符
 
+```java
+/**
+ * @program: JUC-study
+ * @description:
+ * @author: 兔子
+ * @create: 2022-02-16 13:41
+ **/
 
+public class ABADemo {
+    public static void main(String[] args) {
+//        初始化传入两个参数，一个初始化值，一个初始化版本
+        AtomicStampedReference<Integer> atomicStampedReference = new AtomicStampedReference<>(1, 1);
+        new Thread(() -> {
+            int stamp = atomicStampedReference.getStamp();
+            System.out.println("cas1" + stamp);
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+//            进行cas操作
+            System.out.println(atomicStampedReference.compareAndSet(1, 2, atomicStampedReference.getStamp(), atomicStampedReference.getStamp() + 1));
+            System.out.println("cas1=>" + atomicStampedReference.getStamp());
 
+//            进行ABA操作
+            System.out.println(atomicStampedReference.compareAndSet(2, 1, atomicStampedReference.getStamp(), atomicStampedReference.getStamp() + 1));
+            System.out.println("cas2=>" + atomicStampedReference.getStamp());
+        }).start();
+
+        new Thread(() -> {
+            System.out.println(atomicStampedReference.compareAndSet(1, 6, atomicStampedReference.getStamp(), atomicStampedReference.getStamp() + 1));
+            System.out.println("cas3=>" + atomicStampedReference.getStamp());
+        }).start();
+    }
+}
+```
+
+# 24、锁的问题
+
+## 1、公平锁和非公平锁
+
+1. 公平锁不能插队，必须按照排队顺序执行，所以有可能会造成阻塞。
+2. 非公平锁可以插队，Lock锁和Synchronized和都是默认非公平锁。
+
+## 2、可重入锁
+
+> 拿到外面的锁的时候，里面在调用其他方法，这个方法也有锁，那么也可以拿到里面的锁，执行顺序永远不会变。
+
+```java
+public class RepeatAbleLock {
+    public static void main(String[] args) {
+        Phone phone = new Phone();
+        new Thread(() -> {
+            phone.sendMassge();
+        },"A").start();
+
+        new Thread(() -> {
+            phone.sendMassge();
+        },"B").start();
+    }
+}
+class Phone {
+    public synchronized void sendMassge() {
+        System.out.println(Thread.currentThread().getName() + "发短信");
+        call();
+    }
+    public void call() {
+        System.out.println(Thread.currentThread().getName() + "打电话");
+    }
+}
+```
+
+## 3、自旋锁
+
+## 1、什么是自旋锁
+
+1. 一直死循环直到解锁位置，原子性操作里面就有自旋锁。
+2. ![自旋锁](JUC入门.assets/自旋锁-16449953046751.jpg)
+
+## 2、自定义自旋锁
+
+```java
+/**
+ * @program: JUC-study
+ * @description: 自定义自旋锁
+ * @author: 兔子
+ * @create: 2022-02-16 15:09
+ **/
+
+public class SpinLock {
+    AtomicReference<Thread> atomicReference = new AtomicReference<>();
+    public void lock() {
+        Thread thread = Thread.currentThread();
+        System.out.println(thread.getName() + "加锁");
+        while (!atomicReference.compareAndSet(null,thread)) {}
+    }
+    public void unlock() {
+        Thread thread = Thread.currentThread();
+        System.out.println(thread.getName() + "解锁");
+        atomicReference.compareAndSet(thread,null);
+    }
+}
+```
+
+## 3、死锁问题
+
+> 查看日志或者堆栈信息
+
+### 解决问题
+
+1. 使用jps -l查看当前程序的进程号。
+2. 使用jstack 进程号 查看死锁的是那些线程。
 
 
 
